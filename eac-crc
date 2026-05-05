@@ -1,11 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -o pipefail # this is absolutely critical: make pipes exit with failure if any of the involved commands fails. the default is exit status of the last command.
 
-# Source & manual of this script: http://leo.bogert.de/eac-crc
-VERSION="1.2"
+# Source & manual of this script: https://github.com/Kreeblah/eac-crc
+# Forked from: http://leo.bogert.de/eac-crc
+VERSION="1.3"
 
 main() {
-	if [ "$#" -ne 1 ] ; then
+	if [[ "$#" -lt 1 ]] || [[ "$#" -gt 2 ]]; then
 		echo "Syntax:" >&2
 		echo "eac-crc filename_of_input_wav" >&2
 		echo "OR" >&2
@@ -13,23 +14,33 @@ main() {
 		exit 1
 	fi
 	
-	if [ "$1" = "--version" ] ; then
+	if [[ "$1" = "--version" ]]; then
 		echo "eac-crc version $VERSION"
 		exit 0
 	fi
 
+	if [[ ! -f "$1" ]]; then
+		echo "Unable to find file: $1" >&2
+		exit 1
+	fi
+
 	local crc	# defining & assigning it at once would overwrite $?
 	local exit_code
-	
-	crc="$(shncat -q -e "$1" | rhash --printf="%C" -)"
-	exit_code="$?"
-	
-	if [ "$exit_code" -eq 0 ] ; then
-		echo "$crc"
-	else
-		echo "shncat or rhash failed!" >&2
+
+	if [[ "$#" -eq 1 ]]; then
+		crc="$(sox_ng "$1" -t raw - | rhash --printf="%C" -)"
+		exit_code="$?"
+	elif [[ "$#" -eq 2 ]]; then
+		crc="$(sox_ng -t "$2" "$1" -t raw - | rhash --printf="%C" -)"
+		exit_code="$?"
 	fi
 	
+	if [[ "$exit_code" -eq 0 ]]; then
+		echo "$crc"
+	else
+		echo "sox_ng or rhash failed!" >&2
+	fi
+
 	exit "$exit_code"
 }
 
